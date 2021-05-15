@@ -88,7 +88,7 @@ class SephoraScraper:
         self.products['seller'].append(seller)
         self.products['id'].append(product_id)
 
-        self.get_product_ratings(product_id)
+        self._get_product_ratings(product_id)
 
     def _get_product_list(self, num_pages):        
         self._scrape_page(1)
