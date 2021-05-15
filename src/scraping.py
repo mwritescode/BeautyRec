@@ -117,5 +117,4 @@ class SephoraScraper:
         for product in products:
             link = product.get_attribute('href')
             self.product_links.append(link)
-        print('Finisced scraping pages for links')
-        print(60*'=')
+        print('Finished scraping pages for links')
