@@ -27,7 +27,10 @@ class SephoraScraper:
         product_id = 1
         for product in self.product_links:
             self._get_product_info(product, product_id)
+            self._get_product_ratings(product_id, num_pages_reviews)
             product_id +=1
+        print(60*'=')
+        print('Scraping complete!')
         return self.products, self.ratings
 
     def _initialize_product_dict(self):
@@ -61,15 +64,20 @@ class SephoraScraper:
             self.ratings['buyer_nickname'].append(user)
     
     def _adjust_ratings_page_num(self, num_page_reviews):
-        page_num = self.driver.find_elements_by_class_name('css-exi524')[-1].text
+        self._close_popup()
+        page_num = self.driver.find_elements_by_css_selector("button[class='css-exi524']")
+        while not page_num:
+            time.sleep(1)
+            page_num = self.driver.find_elements_by_css_selector("button[class='css-exi524']")
+        page_num = page_num[-1].text
         page_num = int(page_num)
         if num_page_reviews == -1 or num_page_reviews > page_num:
             num_page_reviews = page_num
+        return num_page_reviews
 
     def _get_product_ratings(self, product_id, num_pages_reviews):
         num_pages_reviews = self._adjust_ratings_page_num(num_pages_reviews)
         for _ in range(1, num_pages_reviews + 1):
-            self._close_popup()
             ratings = self.driver.find_elements_by_css_selector("div[class='css-4qxrld']")
             users = self.driver.find_elements_by_css_selector("div[class='css-z04cd8 eanm77i0'] strong")
             self._update_ratings(ratings, users, product_id)
@@ -77,9 +85,9 @@ class SephoraScraper:
             time.sleep(1)  
     
     def _get_product_info(self, product_link, product_id):
-        print(60*'=')
-        print(f'Scraping product number {product_id}/{len(self.products)}...')
+        print(f'Scraping product number {product_id}/{len(self.product_links)}...')
         self.driver.get(product_link)
+        self._scroll_to_bottom()
 
         name = self.driver.find_element_by_css_selector("span[class='css-1pgnl76 e65zztl0']").text
         seller = self.driver.find_element_by_css_selector("a[class='css-nc375s e65zztl0']").text
@@ -88,9 +96,8 @@ class SephoraScraper:
         self.products['seller'].append(seller)
         self.products['id'].append(product_id)
 
-        self._get_product_ratings(product_id)
-
-    def _get_product_list(self, num_pages):        
+    def _get_product_list(self, num_pages):
+        print(60*'=')        
         self._scrape_page(1)
         available_pages = self.driver.find_elements_by_css_selector("button[class='css-p4voop eanm77i0']")[-1].text
         available_pages = int(available_pages)
@@ -99,6 +106,8 @@ class SephoraScraper:
 
         for page_num in range(2, num_pages + 1):
             self._scrape_page(page_num)
+        print('Finished scraping page for links')
+        print(60*'=')
     
     def _scroll_to_bottom(self):
         start = 0
@@ -108,7 +117,6 @@ class SephoraScraper:
             time.sleep(2)
 
     def _scrape_page(self, page_num):
-        print(60*'=')
         print(f'Scraping page {page_num}...')
         url = self.base_url + f'?currentPage={page_num}'
         self.driver.get(url)
@@ -117,4 +125,3 @@ class SephoraScraper:
         for product in products:
             link = product.get_attribute('href')
             self.product_links.append(link)
-        print('Finished scraping pages for links')
