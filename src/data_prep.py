@@ -34,4 +34,12 @@ def download_data():
             scraper.save_products_as_csv(os.path.join(path, 'products.csv'))
             scraper.save_ratings_as_csv(os.path.join(path, 'ratings.csv'))
 
-download_data()
+def remove_nicknames(ratings):
+    ratings['buyer_id'] = pd.factorize(ratings['buyer_nickname'])[0]
+    ratings = ratings.drop(['buyer_nickname'], axis=1)
+    return ratings
+
+
+#download_data()
+ratings = pd.read_csv('../data/moisturizers/ratings.csv', sep='\t')
+remove_nicknames(ratings)
