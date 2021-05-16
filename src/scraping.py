@@ -4,6 +4,8 @@ import pandas as pd
 
 from selenium import webdriver
 
+from css_selectors import CSS_SELECTORS
+
 class SephoraScraper:
 
     def __init__(self, driver_path, base_url, **kwargs):
@@ -50,7 +52,7 @@ class SephoraScraper:
         return rating_dict
     
     def _close_popup(self):
-        popup = self.driver.find_elements_by_class_name("css-1kna575")
+        popup = self.driver.find_elements_by_css_selector(CSS_SELECTORS['popup'])
         if popup:
             popup[0].click()
             time.sleep(1)
@@ -63,46 +65,45 @@ class SephoraScraper:
             self.ratings['product_id'].append(product_id)
             self.ratings['buyer_nickname'].append(user)
     
-    def _adjust_ratings_page_num(self, num_page_reviews):
-        self._close_popup()
-        page_num = self.driver.find_elements_by_css_selector("button[class='css-exi524']")
-        while not page_num:
-            time.sleep(1)
-            page_num = self.driver.find_elements_by_css_selector("button[class='css-exi524']")
-        page_num = page_num[-1].text
-        page_num = int(page_num)
-        if num_page_reviews == -1 or num_page_reviews > page_num:
-            num_page_reviews = page_num
-        return num_page_reviews
+    def _adjust_page_num(self, num_pages, selector):
+        available_pages = self.driver.find_elements_by_css_selector(selector)
+        while not available_pages:
+            time.sleep(0.5)
+            available_pages = self.driver.find_elements_by_css_selector(selector)
+        available_pages = int(available_pages[-1].text)
+        if num_pages == -1 or num_pages > available_pages:
+            num_pages = available_pages
+        return num_pages
 
     def _get_product_ratings(self, product_id, num_pages_reviews):
-        num_pages_reviews = self._adjust_ratings_page_num(num_pages_reviews)
-        for _ in range(1, num_pages_reviews + 1):
-            ratings = self.driver.find_elements_by_css_selector("div[class='css-4qxrld']")
-            users = self.driver.find_elements_by_css_selector("div[class='css-z04cd8 eanm77i0'] strong")
+        num_pages_reviews = self._adjust_page_num(num_pages_reviews, CSS_SELECTORS['review_pages'])
+        for page in range(1, num_pages_reviews + 1):
+            print(f'Scraping reviews on page {page}')
+            ratings = self.driver.find_elements_by_css_selector(CSS_SELECTORS['rating'])
+            users = self.driver.find_elements_by_css_selector(CSS_SELECTORS['user'])
             self._update_ratings(ratings, users, product_id)
-            self.driver.find_element_by_css_selector("button[class='css-2anst8']").click()
+            self.driver.find_element_by_css_selector(CSS_SELECTORS['next_review_page']).click()
             time.sleep(1)  
     
     def _get_product_info(self, product_link, product_id):
         print(f'Scraping product number {product_id}/{len(self.product_links)}...')
         self.driver.get(product_link)
         self._scroll_to_bottom()
+        self._close_popup()
 
-        name = self.driver.find_element_by_css_selector("span[class='css-1pgnl76 e65zztl0']").text
-        seller = self.driver.find_element_by_css_selector("a[class='css-nc375s e65zztl0']").text
+        name = self.driver.find_element_by_css_selector(CSS_SELECTORS['product_name']).text
+        seller = self.driver.find_element_by_css_selector(CSS_SELECTORS['seller']).text
+        if product_id < 10:
+            print(name, seller)
 
         self.products['name'].append(name)
         self.products['seller'].append(seller)
         self.products['id'].append(product_id)
 
     def _get_product_list(self, num_pages):
-        print(60*'=')        
+        print(60*'=')
         self._scrape_page(1)
-        available_pages = self.driver.find_elements_by_css_selector("button[class='css-p4voop eanm77i0']")[-1].text
-        available_pages = int(available_pages)
-        if num_pages == -1 or num_pages > available_pages:
-            num_pages = available_pages
+        num_pages = self._adjust_page_num(num_pages, CSS_SELECTORS['product_pages'])
 
         for page_num in range(2, num_pages + 1):
             self._scrape_page(page_num)
@@ -114,14 +115,14 @@ class SephoraScraper:
         while start < self.body_height:
             self.driver.execute_script("window.scrollTo(%i, %i);" % (start, start+1000))
             start += 1000
-            time.sleep(2)
+            time.sleep(3)
 
     def _scrape_page(self, page_num):
         print(f'Scraping page {page_num}...')
         url = self.base_url + f'?currentPage={page_num}'
         self.driver.get(url)
         self._scroll_to_bottom()
-        products = self.driver.find_elements_by_css_selector("div[class='css-dkxsdo'] a")
+        products = self.driver.find_elements_by_css_selector(CSS_SELECTORS['product_links'])
         for product in products:
             link = product.get_attribute('href')
             self.product_links.append(link)

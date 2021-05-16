@@ -30,7 +30,7 @@ def download_data():
         if not os.listdir(path):
             scraper = SephoraScraper(driver_path=PATH,
                                     base_url=category['url'])
-            scraper.scrape(num_pages_reviews=1, num_pages=1)
+            scraper.scrape(num_pages_reviews=2, num_pages=1)
             scraper.save_products_as_csv(os.path.join(path, 'products.csv'))
             scraper.save_ratings_as_csv(os.path.join(path, 'ratings.csv'))
 
