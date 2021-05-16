@@ -18,11 +18,11 @@ class SephoraScraper:
     
     def save_products_as_csv(self, path):
         products_df = pd.DataFrame.from_dict(self.products)
-        products_df.to_csv(path, sep='\t')
+        products_df.to_csv(path, sep='\t', index=False)
     
     def save_ratings_as_csv(self, path):
         ratings_df = pd.DataFrame.from_dict(self.ratings)
-        ratings_df.to_csv(path, sep='\t')
+        ratings_df.to_csv(path, sep='\t', index=False)
 
     def scrape(self, num_pages=-1, num_pages_reviews=-1,):
         self._get_product_list(num_pages)
