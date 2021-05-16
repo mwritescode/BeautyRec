@@ -93,8 +93,6 @@ class SephoraScraper:
 
         name = self.driver.find_element_by_css_selector(CSS_SELECTORS['product_name']).text
         seller = self.driver.find_element_by_css_selector(CSS_SELECTORS['seller']).text
-        if product_id < 10:
-            print(name, seller)
 
         self.products['name'].append(name)
         self.products['seller'].append(seller)
