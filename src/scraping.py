@@ -12,22 +12,17 @@ from selenium.webdriver.support import expected_conditions
 from css_selectors import CSS_SELECTORS
 
 PAGE_BOTTOM = 7000
-PAGE_MIDDLE = 3000
+PAGE_MIDDLE = 4000
 
 class SephoraScraper:
 
-    def __init__(self, driver_path, base_url, products_links= [], **kwargs):
+    def __init__(self, driver_path, **kwargs):
         self.driver = webdriver.Chrome(driver_path, **kwargs)
-        self.base_url = base_url
+        self.base_url = ' '
         self.ignored_exceptions=(NoSuchElementException,StaleElementReferenceException)
-        self.product_links = products_links
+        self.product_links = []
         self.products = self._initialize_product_dict()
         self.ratings = self._initialize_ratings()
-    
-    def _save_product_links(self):
-        links_df = pd.DataFrame(self.product_links, columns=['links'])
-        file_name = '../data/' + self.base_url.split('/')[-1] + '.csv'
-        links_df.to_csv(file_name, sep='\t', index=False)
     
     def save_products_as_csv(self, path):
         products_df = pd.DataFrame.from_dict(self.products)
@@ -37,19 +32,52 @@ class SephoraScraper:
         ratings_df = pd.DataFrame.from_dict(self.ratings)
         ratings_df.to_csv(path, sep='\t', index=False)
 
-    def scrape(self, num_pages=-1, num_pages_reviews=-1, save_links=False):
-        if not self.product_links:
+    def scrape_links(self, starting_links, num_pages=-1):
+        for url in starting_links:
+            print('\n' + 60*'=')
+            print('Scraping links at ' + url + '...')
+            self.base_url = url
             self._get_product_list(num_pages)
-        if save_links:
-            self._save_product_links()
+        self._save_product_links()
+        return self.product_links
+    
+    def load_checkpoint(self, products_path, reviews_path, product_links):
+        self.ratings = pd.read_csv(reviews_path, sep ='\t').to_dict('list')
+        self.products = pd.read_csv(products_path).to_dict('list')
+        num_products = len(self.products['id'])
+        self.product_links = product_links[num_products +1:]
+
+    def scrape_products_and_reviews(self, num_pages_reviews=-1, product_links=[], checkpoints=True, checkpoint_after=100):
+        self._instatiate_product_links(product_links)
         product_id = 1
         for product in self.product_links:
             self._get_product_info(product, product_id)
             self._get_product_ratings(product_id, num_pages_reviews)
+            if (product_id - 1) % checkpoint_after == 0 and checkpoints:
+                self._make_checkpoint(f'../data/chechpoint{int((product_id - 1)/ checkpoint_after)}')
             product_id +=1
         print(60*'=')
         print('Scraping complete!')
         return self.products, self.ratings
+    
+    def _make_checkpoint(self, pathname):
+        name_reviews = pathname + '_reviews.csv'
+        name_products = pathname + '_products.csv'
+        self.save_ratings_as_csv(name_reviews)
+        self.save_products_as_csv(name_products)
+    
+    def _instatiate_product_links(self, product_links):
+        if not self.product_links:
+            if product_links:
+                self.product_links = product_links
+            else:
+                raise TypeError('No list of product links was found. Either  scrape one '\
+                    +'using .scrape_links() or pass one in the product_links parameter')
+
+    def _save_product_links(self):
+        links_df = pd.DataFrame(self.product_links, columns=['links'])
+        file_name = '../data/product_links.csv'
+        links_df.to_csv(file_name, sep='\t', index=False)
 
     def _initialize_product_dict(self):
         product_dict = {
@@ -152,6 +180,7 @@ class SephoraScraper:
         self._close_popup()
         self._scroll_to(PAGE_BOTTOM)
         products = self.driver.find_elements_by_css_selector(CSS_SELECTORS['product_links'])
+        print(f'I got {len(products)} links!')
         for product in products:
             link = product.get_attribute('href')
             self.product_links.append(link)
