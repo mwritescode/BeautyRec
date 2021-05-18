@@ -7,32 +7,26 @@ from scraping import SephoraScraper
 # System path to chrome webdriver and urls to scrape
 PATH = 'C:/WebDrivers/chromedriver.exe'
 
-MOISTURIZERS = {
-    'url': 'https://www.sephora.com/shop/moisturizer-skincare',
-    'path': '../data/moisturizers' }
+TO_SCRAPE = ['https://www.sephora.com/shop/moisturizer-skincare', 
+            'https://www.sephora.com/shop/facial-toner-skin-toner',
+            'https://www.sephora.com/shop/facial-treatment-masks',
+            'https://www.sephora.com/shop/exfoliating-scrub-exfoliator']
 
-TONERS = {
-    'url': 'https://www.sephora.com/shop/facial-toner-skin-toner',
-    'path': '../data/toners' }
+LINKS_PATH = '../data/product_links.csv'
 
-FACE_MASKS = {
-    'url': 'https://www.sephora.com/shop/facial-treatment-masks',
-    'path': '../data/face_masks' }
-
-SCRUBS = {
-    'url': 'https://www.sephora.com/shop/exfoliating-scrub-exfoliator',
-    'path': '../data/scrubs'}
-
-def download_data():
-    categories = [MOISTURIZERS, TONERS, FACE_MASKS, SCRUBS]
-    for category in categories:
-        path = category['path']
-        if not os.listdir(path):
-            scraper = SephoraScraper(driver_path=PATH,
-                                    base_url=category['url'])
-            scraper.scrape(num_pages_reviews=2, num_pages=1)
-            scraper.save_products_as_csv(os.path.join(path, 'products.csv'))
-            scraper.save_ratings_as_csv(os.path.join(path, 'ratings.csv'))
+def download_data(checkpoint=''):
+            scraper = SephoraScraper(driver_path=PATH)
+            if os.path.isfile(LINKS_PATH):
+                links = pd.read_csv(LINKS_PATH, sep='\t')['links'].to_list()
+                if len(checkpoint) > 0:
+                    scraper.load_checkpoint(checkpoint + '_products.csv', 
+                                        checkpoint + '_reviews.csv', links)
+            else:
+                links = scraper.scrape_links(TO_SCRAPE)
+                
+            scraper.scrape_products_and_reviews(num_pages_reviews=20, product_links=links)
+            scraper.save_products_as_csv('../data/products.csv')
+            scraper.save_ratings_as_csv('..data/ratings.csv')
 
 def remove_nicknames(ratings):
     ratings['buyer_id'] = pd.factorize(ratings['buyer_nickname'])[0]
@@ -40,6 +34,6 @@ def remove_nicknames(ratings):
     return ratings
 
 
-#download_data()
-ratings = pd.read_csv('../data/moisturizers/ratings.csv', sep='\t')
-remove_nicknames(ratings)
+download_data()
+#ratings = pd.read_csv('../data/moisturizers/ratings.csv', sep='\t')
+#remove_nicknames(ratings)
