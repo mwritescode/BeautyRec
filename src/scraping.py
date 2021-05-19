@@ -20,7 +20,7 @@ class SephoraScraper:
     def __init__(self, driver_path, **kwargs):
         self.driver = webdriver.Chrome(driver_path, **kwargs)
         self.driver_path = driver_path
-        self.kwargs = kwargs
+        self.driver_kwargs = kwargs
         self.base_url = ' '
         self.ignored_exceptions=(NoSuchElementException,StaleElementReferenceException)
         self.product_links = []
@@ -31,8 +31,7 @@ class SephoraScraper:
     def __getstate__(self):
         state = self.__dict__
         del state['driver']
-        state['driver_path'] = self.driver_path
-        state['driver_kwargs'] = self.kwargs
+        print(state)
         return state
     
     def __setstate__(self, dict):
@@ -61,7 +60,7 @@ class SephoraScraper:
     def scrape_products_and_reviews(self, num_pages_reviews=-1, product_links=[], checkpoints=True, checkpoint_after=100):
         self._instatiate_product_links(product_links)
         self.product_id += 1
-        for product in self.product_links:
+        for product in self.product_links[self.product_id:]:
             self._get_product_info(product)
             self._get_product_ratings(num_pages_reviews)
             if checkpoints:
@@ -72,14 +71,18 @@ class SephoraScraper:
         return self.products, self.ratings
     
     def _make_checkpoint(self, checkpoint_after):
-        pathname = '../data/' + str(self.product_id / checkpoint_after) + 'pkl'
-        with open(pathname, 'wb') as checkpoint:
-            pickle(checkpoint, self)
+        if not self.product_id % checkpoint_after:
+            pathname = '../data/' + str(int(self.product_id / checkpoint_after)) + '.pkl'
+            with open(pathname, 'wb') as checkpoint:
+                self.driver.quit()
+                pickle.dump(self, checkpoint)
+                self.__setstate__(self.__dict__)
     
     def _instatiate_product_links(self, product_links):
         if not self.product_links:
             if product_links:
                 self.product_links = product_links
+                self.product_id = 0
             else:
                 raise TypeError('No list of product links was found. Either  scrape one '\
                     +'using .scrape_links() or pass one in the product_links parameter')
@@ -139,8 +142,8 @@ class SephoraScraper:
                             .until(expected_conditions.presence_of_all_elements_located((By.CSS_SELECTOR, CSS_SELECTORS['rating'])))
             users = WebDriverWait(self.driver, 20, ignored_exceptions=self.ignored_exceptions) \
                             .until(expected_conditions.presence_of_all_elements_located((By.CSS_SELECTOR, CSS_SELECTORS['user'])))
-            self._update_ratings(ratings, users, self.product_id)
-            if page - num_pages_reviews > 0:
+            self._update_ratings(ratings, users)
+            if num_pages_reviews - page > 0:
                 self.driver.find_element_by_css_selector(CSS_SELECTORS['next_review_page']).click()
                 WebDriverWait(self.driver, 20).until(expected_conditions.staleness_of(users[0]))
     
