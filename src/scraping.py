@@ -43,9 +43,9 @@ class SephoraScraper:
     
     def load_checkpoint(self, products_path, reviews_path, product_links):
         self.ratings = pd.read_csv(reviews_path, sep ='\t').to_dict('list')
-        self.products = pd.read_csv(products_path).to_dict('list')
+        self.products = pd.read_csv(products_path, sep ='\t').to_dict('list')
         num_products = len(self.products['id'])
-        self.product_links = product_links[num_products +1:]
+        self.product_links = product_links[num_products:]
 
     def scrape_products_and_reviews(self, num_pages_reviews=-1, product_links=[], checkpoints=True, checkpoint_after=100):
         self._instatiate_product_links(product_links)
@@ -53,8 +53,8 @@ class SephoraScraper:
         for product in self.product_links:
             self._get_product_info(product, product_id)
             self._get_product_ratings(product_id, num_pages_reviews)
-            if (product_id - 1) % checkpoint_after == 0 and checkpoints:
-                self._make_checkpoint(f'../data/chechpoint{int((product_id - 1)/ checkpoint_after)}')
+            if product_id % checkpoint_after == 0 and checkpoints:
+                self._make_checkpoint(f'../data/chechpoint{int((product_id)/ checkpoint_after)}')
             product_id +=1
         print(60*'=')
         print('Scraping complete!')
