@@ -59,7 +59,6 @@ class SephoraScraper:
 
     def scrape_products_and_reviews(self, num_pages_reviews=-1, product_links=[], checkpoints=True, checkpoint_after=100):
         self._instatiate_product_links(product_links)
-        self.product_id += 1
         for product in self.product_links[self.product_id:]:
             self._get_product_info(product)
             self._get_product_ratings(num_pages_reviews)
@@ -71,7 +70,7 @@ class SephoraScraper:
         return self.products, self.ratings
     
     def _make_checkpoint(self, checkpoint_after):
-        if not self.product_id % checkpoint_after:
+        if not self.product_id-1 % checkpoint_after:
             pathname = '../data/' + str(int(self.product_id / checkpoint_after)) + '.pkl'
             with open(pathname, 'wb') as checkpoint:
                 self.driver.quit()
@@ -159,7 +158,7 @@ class SephoraScraper:
         return name, seller
 
     def _get_product_info(self, product_link):
-        print(f'Scraping product number {self.product_id}/{len(self.product_links)}...')
+        print(f'Scraping product number {self.product_id + 1}/{len(self.product_links)}...')
         self.driver.get(product_link)
         self._scroll_to(PAGE_MIDDLE, step=500)
         self._close_popup()
