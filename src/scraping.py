@@ -1,6 +1,7 @@
 import time
 
 import pandas as pd
+import pickle
 
 from selenium import webdriver
 from selenium.common.exceptions import NoSuchElementException, TimeoutException
@@ -18,11 +19,27 @@ class SephoraScraper:
 
     def __init__(self, driver_path, **kwargs):
         self.driver = webdriver.Chrome(driver_path, **kwargs)
+        self.driver_path = driver_path
+        self.kwargs = kwargs
         self.base_url = ' '
         self.ignored_exceptions=(NoSuchElementException,StaleElementReferenceException)
         self.product_links = []
+        self.product_id = 0
         self.products = self._initialize_product_dict()
         self.ratings = self._initialize_ratings()
+    
+    def __getstate__(self):
+        state = self.__dict__
+        del state['driver']
+        state['driver_path'] = self.driver_path
+        state['driver_kwargs'] = self.kwargs
+        return state
+    
+    def __setstate__(self, dict):
+        dict['driver'] = webdriver.Chrome(dict['driver_path'], **dict['driver_kwargs'])
+        del dict['driver_path']
+        del dict['driver_kwargs']
+        self.__dict__ = dict
     
     def save_products_as_csv(self, path):
         products_df = pd.DataFrame.from_dict(self.products)
@@ -40,31 +57,24 @@ class SephoraScraper:
             self._get_product_list(num_pages)
         self._save_product_links()
         return self.product_links
-    
-    def load_checkpoint(self, products_path, reviews_path, product_links):
-        self.ratings = pd.read_csv(reviews_path, sep ='\t').to_dict('list')
-        self.products = pd.read_csv(products_path, sep ='\t').to_dict('list')
-        num_products = len(self.products['id'])
-        self.product_links = product_links[num_products:]
 
     def scrape_products_and_reviews(self, num_pages_reviews=-1, product_links=[], checkpoints=True, checkpoint_after=100):
         self._instatiate_product_links(product_links)
-        product_id = 1
+        self.product_id += 1
         for product in self.product_links:
-            self._get_product_info(product, product_id)
-            self._get_product_ratings(product_id, num_pages_reviews)
-            if product_id % checkpoint_after == 0 and checkpoints:
-                self._make_checkpoint(f'../data/checkpoint{int((product_id)/ checkpoint_after)}')
-            product_id +=1
+            self._get_product_info(product)
+            self._get_product_ratings(num_pages_reviews)
+            if checkpoints:
+                self._make_checkpoint(checkpoint_after)
+            self.product_id +=1
         print(60*'=')
         print('Scraping complete!')
         return self.products, self.ratings
     
-    def _make_checkpoint(self, pathname):
-        name_reviews = pathname + '_reviews.csv'
-        name_products = pathname + '_products.csv'
-        self.save_ratings_as_csv(name_reviews)
-        self.save_products_as_csv(name_products)
+    def _make_checkpoint(self, checkpoint_after):
+        pathname = '../data/' + str(self.product_id / checkpoint_after) + 'pkl'
+        with open(pathname, 'wb') as checkpoint:
+            pickle(checkpoint, self)
     
     def _instatiate_product_links(self, product_links):
         if not self.product_links:
@@ -101,12 +111,12 @@ class SephoraScraper:
             popup[0].click()
             time.sleep(1)
     
-    def _update_ratings(self, ratings, users, product_id):
+    def _update_ratings(self, ratings, users):
         for rating, user in zip(ratings, users):
             rating = int(rating.get_attribute('aria-label').split(" ")[0])
             user = user.text
             self.ratings['rating'].append(rating)
-            self.ratings['product_id'].append(product_id)
+            self.ratings['product_id'].append(self.product_id)
             self.ratings['buyer_nickname'].append(user)
     
     def _adjust_page_num(self, num_pages, selector):
@@ -121,7 +131,7 @@ class SephoraScraper:
         return num_pages
     
 
-    def _get_product_ratings(self, product_id, num_pages_reviews):
+    def _get_product_ratings(self, num_pages_reviews):
         num_pages_reviews = self._adjust_page_num(num_pages_reviews, CSS_SELECTORS['review_pages'])
         for page in range(1, num_pages_reviews + 1):
             print(f'Scraping reviews on page {page}')
@@ -129,7 +139,7 @@ class SephoraScraper:
                             .until(expected_conditions.presence_of_all_elements_located((By.CSS_SELECTOR, CSS_SELECTORS['rating'])))
             users = WebDriverWait(self.driver, 20, ignored_exceptions=self.ignored_exceptions) \
                             .until(expected_conditions.presence_of_all_elements_located((By.CSS_SELECTOR, CSS_SELECTORS['user'])))
-            self._update_ratings(ratings, users, product_id)
+            self._update_ratings(ratings, users, self.product_id)
             if page - num_pages_reviews > 0:
                 self.driver.find_element_by_css_selector(CSS_SELECTORS['next_review_page']).click()
                 WebDriverWait(self.driver, 20).until(expected_conditions.staleness_of(users[0]))
@@ -145,8 +155,8 @@ class SephoraScraper:
 
         return name, seller
 
-    def _get_product_info(self, product_link, product_id):
-        print(f'Scraping product number {product_id}/{len(self.product_links)}...')
+    def _get_product_info(self, product_link):
+        print(f'Scraping product number {self.product_id}/{len(self.product_links)}...')
         self.driver.get(product_link)
         self._scroll_to(PAGE_MIDDLE, step=500)
         self._close_popup()
@@ -154,7 +164,7 @@ class SephoraScraper:
         name, seller = self._scrape_name_and_seller()
         self.products['name'].append(name)
         self.products['seller'].append(seller)
-        self.products['id'].append(product_id)
+        self.products['id'].append(self.product_id)
 
     def _get_product_list(self, num_pages):
         print(60*'=')
