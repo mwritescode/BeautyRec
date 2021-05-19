@@ -3,7 +3,7 @@ import time
 import pandas as pd
 
 from selenium import webdriver
-from selenium.common.exceptions import NoSuchElementException
+from selenium.common.exceptions import NoSuchElementException, TimeoutException
 from selenium.common.exceptions import StaleElementReferenceException
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
@@ -12,7 +12,7 @@ from selenium.webdriver.support import expected_conditions
 from css_selectors import CSS_SELECTORS
 
 PAGE_BOTTOM = 7000
-PAGE_MIDDLE = 4000
+PAGE_MIDDLE = 3500
 
 class SephoraScraper:
 
@@ -54,7 +54,7 @@ class SephoraScraper:
             self._get_product_info(product, product_id)
             self._get_product_ratings(product_id, num_pages_reviews)
             if product_id % checkpoint_after == 0 and checkpoints:
-                self._make_checkpoint(f'../data/chechpoint{int((product_id)/ checkpoint_after)}')
+                self._make_checkpoint(f'../data/checkpoint{int((product_id)/ checkpoint_after)}')
             product_id +=1
         print(60*'=')
         print('Scraping complete!')
@@ -110,11 +110,12 @@ class SephoraScraper:
             self.ratings['buyer_nickname'].append(user)
     
     def _adjust_page_num(self, num_pages, selector):
-        available_pages = self.driver.find_elements_by_css_selector(selector)
-        while not available_pages:
-            time.sleep(0.5)
-            available_pages = self.driver.find_elements_by_css_selector(selector)
-        available_pages = int(available_pages[-1].text)
+        try:
+            available_pages = WebDriverWait(self.driver, 20, ignored_exceptions=self.ignored_exceptions)\
+                              .until(expected_conditions.presence_of_all_elements_located((By.CSS_SELECTOR, selector)))
+            available_pages = int(available_pages[-1].text)
+        except TimeoutException:
+            available_pages = 1
         if num_pages == -1 or num_pages > available_pages:
             num_pages = available_pages
         return num_pages
@@ -129,26 +130,25 @@ class SephoraScraper:
             users = WebDriverWait(self.driver, 20, ignored_exceptions=self.ignored_exceptions) \
                             .until(expected_conditions.presence_of_all_elements_located((By.CSS_SELECTOR, CSS_SELECTORS['user'])))
             self._update_ratings(ratings, users, product_id)
-            self.driver.find_element_by_css_selector(CSS_SELECTORS['next_review_page']).click()
+            if num_pages_reviews != 1:
+                self.driver.find_element_by_css_selector(CSS_SELECTORS['next_review_page']).click()
             time.sleep(2)
     
     def _scrape_name_and_seller(self):
-        name = self.driver.find_elements_by_css_selector(CSS_SELECTORS['product_name'])
-        seller = self.driver.find_elements_by_css_selector(CSS_SELECTORS['seller'])
-        while not name or not seller:
-            time.sleep(0.5)
-            name = self.driver.find_elements_by_css_selector(CSS_SELECTORS['product_name'])
-            seller = self.driver.find_elements_by_css_selector(CSS_SELECTORS['seller'])
-
+        name = WebDriverWait(self.driver, 20, ignored_exceptions=self.ignored_exceptions)\
+                            .until(expected_conditions.presence_of_all_elements_located((By.CSS_SELECTOR, CSS_SELECTORS['product_name'])))
+        seller = WebDriverWait(self.driver, 20, ignored_exceptions=self.ignored_exceptions) \
+                            .until(expected_conditions.presence_of_all_elements_located((By.CSS_SELECTOR, CSS_SELECTORS['seller'])))
         name = name[0].text
         seller = seller[0].text
+        print(name, seller)
 
         return name, seller
 
     def _get_product_info(self, product_link, product_id):
         print(f'Scraping product number {product_id}/{len(self.product_links)}...')
         self.driver.get(product_link)
-        self._scroll_to(PAGE_MIDDLE)
+        self._scroll_to(PAGE_MIDDLE, step=500)
         self._close_popup()
 
         name, seller = self._scrape_name_and_seller()
@@ -166,19 +166,19 @@ class SephoraScraper:
         print('Finished scraping page for links')
         print(60*'=')
     
-    def _scroll_to(self, pos):
+    def _scroll_to(self, pos, step):
         start = 0
         while start < pos:
-            self.driver.execute_script("window.scrollTo(%i, %i);" % (start, start+1000))
-            start += 1000
-            time.sleep(3)
+            self.driver.execute_script("window.scrollTo(%i, %i);" % (start, start+step))
+            start += step
+            time.sleep(2)
 
     def _scrape_page(self, page_num):
         print(f'Scraping page {page_num}...')
         url = self.base_url + f'?currentPage={page_num}'
         self.driver.get(url)
         self._close_popup()
-        self._scroll_to(PAGE_BOTTOM)
+        self._scroll_to(PAGE_BOTTOM, step=1000)
         products = self.driver.find_elements_by_css_selector(CSS_SELECTORS['product_links'])
         print(f'I got {len(products)} links!')
         for product in products:
