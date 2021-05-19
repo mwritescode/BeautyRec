@@ -130,9 +130,9 @@ class SephoraScraper:
             users = WebDriverWait(self.driver, 20, ignored_exceptions=self.ignored_exceptions) \
                             .until(expected_conditions.presence_of_all_elements_located((By.CSS_SELECTOR, CSS_SELECTORS['user'])))
             self._update_ratings(ratings, users, product_id)
-            if num_pages_reviews != 1:
+            if page - num_pages_reviews > 0:
                 self.driver.find_element_by_css_selector(CSS_SELECTORS['next_review_page']).click()
-            time.sleep(2)
+                WebDriverWait(self.driver, 20).until(expected_conditions.staleness_of(users[0]))
     
     def _scrape_name_and_seller(self):
         name = WebDriverWait(self.driver, 20, ignored_exceptions=self.ignored_exceptions)\
@@ -171,7 +171,7 @@ class SephoraScraper:
         while start < pos:
             self.driver.execute_script("window.scrollTo(%i, %i);" % (start, start+step))
             start += step
-            time.sleep(2)
+            time.sleep(3)
 
     def _scrape_page(self, page_num):
         print(f'Scraping page {page_num}...')
