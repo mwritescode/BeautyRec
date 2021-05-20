@@ -31,13 +31,12 @@ class SephoraScraper:
     def __getstate__(self):
         state = self.__dict__
         del state['driver']
-        print(state)
         return state
     
     def __setstate__(self, dict):
         dict['driver'] = webdriver.Chrome(dict['driver_path'], **dict['driver_kwargs'])
-        del dict['driver_path']
-        del dict['driver_kwargs']
+        dict['driver_path']
+        dict['driver_kwargs']
         self.__dict__ = dict
     
     def save_products_as_csv(self, path):
@@ -62,15 +61,15 @@ class SephoraScraper:
         for product in self.product_links[self.product_id:]:
             self._get_product_info(product)
             self._get_product_ratings(num_pages_reviews)
+            self.product_id +=1
             if checkpoints:
                 self._make_checkpoint(checkpoint_after)
-            self.product_id +=1
         print(60*'=')
         print('Scraping complete!')
         return self.products, self.ratings
     
     def _make_checkpoint(self, checkpoint_after):
-        if not self.product_id-1 % checkpoint_after:
+        if not (self.product_id) % checkpoint_after and self.product_id > 0:
             pathname = '../data/' + str(int(self.product_id / checkpoint_after)) + '.pkl'
             with open(pathname, 'wb') as checkpoint:
                 self.driver.quit()
@@ -116,7 +115,8 @@ class SephoraScraper:
     def _update_ratings(self, ratings, users):
         for rating, user in zip(ratings, users):
             rating = int(rating.get_attribute('aria-label').split(" ")[0])
-            user = user.text
+            if not isinstance(user, str):
+                user = user.text
             self.ratings['rating'].append(rating)
             self.ratings['product_id'].append(self.product_id)
             self.ratings['buyer_nickname'].append(user)
@@ -134,17 +134,24 @@ class SephoraScraper:
     
 
     def _get_product_ratings(self, num_pages_reviews):
-        num_pages_reviews = self._adjust_page_num(num_pages_reviews, CSS_SELECTORS['review_pages'])
-        for page in range(1, num_pages_reviews + 1):
-            print(f'Scraping reviews on page {page}')
-            ratings = WebDriverWait(self.driver, 20, ignored_exceptions=self.ignored_exceptions)\
-                            .until(expected_conditions.presence_of_all_elements_located((By.CSS_SELECTOR, CSS_SELECTORS['rating'])))
-            users = WebDriverWait(self.driver, 20, ignored_exceptions=self.ignored_exceptions) \
-                            .until(expected_conditions.presence_of_all_elements_located((By.CSS_SELECTOR, CSS_SELECTORS['user'])))
-            self._update_ratings(ratings, users)
-            if num_pages_reviews - page > 0:
-                self.driver.find_element_by_css_selector(CSS_SELECTORS['next_review_page']).click()
-                WebDriverWait(self.driver, 20).until(expected_conditions.staleness_of(users[0]))
+        num_ratings = self.driver.find_elements_by_css_selector(CSS_SELECTORS['reviews_number'])[1].text
+        num_ratings = num_ratings.split(' ')[-1]
+        print(num_ratings)
+        if num_ratings != '(0)':
+            num_pages_reviews = self._adjust_page_num(num_pages_reviews, CSS_SELECTORS['review_pages'])
+            for page in range(1, num_pages_reviews + 1):
+                print(f'Scraping reviews on page {page}')
+                ratings = WebDriverWait(self.driver, 20, ignored_exceptions=self.ignored_exceptions)\
+                                .until(expected_conditions.presence_of_all_elements_located((By.CSS_SELECTOR, CSS_SELECTORS['rating'])))
+                try:
+                    users = WebDriverWait(self.driver, 20, ignored_exceptions=self.ignored_exceptions) \
+                                .until(expected_conditions.presence_of_all_elements_located((By.CSS_SELECTOR, CSS_SELECTORS['user'])))
+                except TimeoutException:
+                    users = ['' for _ in range(0, len(ratings))]
+                self._update_ratings(ratings, users)
+                if num_pages_reviews - page > 0:
+                    self.driver.find_element_by_css_selector(CSS_SELECTORS['next_review_page']).click()
+                    WebDriverWait(self.driver, 20).until(expected_conditions.staleness_of(users[0]))
     
     def _scrape_name_and_seller(self):
         name = WebDriverWait(self.driver, 20, ignored_exceptions=self.ignored_exceptions)\
