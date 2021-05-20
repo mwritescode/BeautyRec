@@ -7,5 +7,6 @@ CSS_SELECTORS = {
     "product_name": "span[class='css-1pgnl76 e65zztl0']",
     "seller": "a[class='css-nc375s e65zztl0']",
     "product_pages": "button[class='css-p4voop eanm77i0']",
-    "product_links": "div[class='css-dkxsdo'] a"
+    "product_links": "div[class='css-dkxsdo'] a",
+    "reviews_number": "h2[class='css-1bu59gz eanm77i0']"
 }

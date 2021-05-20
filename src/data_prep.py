@@ -16,6 +16,7 @@ TO_SCRAPE = ['https://www.sephora.com/shop/moisturizer-skincare',
 LINKS_PATH = '../data/product_links.csv'
 
 def download_data(checkpoint=''):
+    links = pd.read_csv(LINKS_PATH, sep='\t')['links'].to_list()
     if checkpoint:
         with open(checkpoint, 'rb') as pickle_file:
             scraper = pickle.load(pickle_file)
@@ -26,7 +27,7 @@ def download_data(checkpoint=''):
         else:
             links = scraper.scrape_links(TO_SCRAPE)
 
-    scraper.scrape_products_and_reviews(num_pages_reviews=2, product_links=links, checkpoint_after=2)
+    scraper.scrape_products_and_reviews(num_pages_reviews=20, product_links=links, checkpoint_after=30)
     scraper.save_products_as_csv('../data/products.csv')
     scraper.save_ratings_as_csv('..data/ratings.csv')
 
@@ -36,4 +37,4 @@ def remove_nicknames(ratings):
     return ratings
 
 
-download_data()
+download_data('../data/11.pkl')
