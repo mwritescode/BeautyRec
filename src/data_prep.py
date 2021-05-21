@@ -4,7 +4,7 @@ import pandas as pd
 import pickle
 
 from scraping import SephoraScraper
-
+from selenium import webdriver
 # System path to chrome webdriver and urls to scrape
 PATH = 'C:/WebDrivers/chromedriver.exe'
 
@@ -27,7 +27,7 @@ def download_data(checkpoint=''):
         else:
             links = scraper.scrape_links(TO_SCRAPE)
 
-    scraper.scrape_products_and_reviews(num_pages_reviews=20, product_links=links, checkpoint_after=30)
+    scraper.scrape_products_and_reviews(num_pages_reviews=20, product_links=links, checkpoint_after=30, override=False)
     scraper.save_products_as_csv('../data/products.csv')
     scraper.save_ratings_as_csv('..data/ratings.csv')
 
@@ -37,4 +37,4 @@ def remove_nicknames(ratings):
     return ratings
 
 
-download_data('../data/11.pkl')
+download_data('../data/16.pkl')
