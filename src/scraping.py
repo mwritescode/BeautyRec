@@ -18,7 +18,7 @@ PAGE_MIDDLE = 3500
 class SephoraScraper:
 
     def __init__(self, driver_path, **kwargs):
-        self.driver = webdriver.Chrome(driver_path, **kwargs)
+        self.driver = self._create_chrome_driver(driver_path, **kwargs)
         self.driver_path = driver_path
         self.driver_kwargs = kwargs
         self.base_url = ' '
@@ -34,9 +34,7 @@ class SephoraScraper:
         return state
     
     def __setstate__(self, dict):
-        dict['driver'] = webdriver.Chrome(dict['driver_path'], **dict['driver_kwargs'])
-        dict['driver_path']
-        dict['driver_kwargs']
+        dict['driver'] = self._create_chrome_driver(dict['driver_path'], **dict['driver_kwargs'])
         self.__dict__ = dict
     
     def save_products_as_csv(self, path):
@@ -56,8 +54,8 @@ class SephoraScraper:
         self._save_product_links()
         return self.product_links
 
-    def scrape_products_and_reviews(self, num_pages_reviews=-1, product_links=[], checkpoints=True, checkpoint_after=100):
-        self._instatiate_product_links(product_links)
+    def scrape_products_and_reviews(self, num_pages_reviews=-1, product_links=[], checkpoints=True, checkpoint_after=100, override=False):
+        self._instatiate_product_links(product_links, override)
         for product in self.product_links[self.product_id:]:
             self._get_product_info(product)
             self._get_product_ratings(num_pages_reviews)
@@ -76,11 +74,12 @@ class SephoraScraper:
                 pickle.dump(self, checkpoint)
                 self.__setstate__(self.__dict__)
     
-    def _instatiate_product_links(self, product_links):
-        if not self.product_links:
+    def _instatiate_product_links(self, product_links, override):
+        if not self.product_links or override:
             if product_links:
                 self.product_links = product_links
-                self.product_id = 0
+                if not override:
+                    self.product_id = 0
             else:
                 raise TypeError('No list of product links was found. Either  scrape one '\
                     +'using .scrape_links() or pass one in the product_links parameter')
@@ -105,6 +104,14 @@ class SephoraScraper:
             'buyer_nickname':[]
         }
         return rating_dict
+    
+    def _create_chrome_driver(self, path, **kwargs):
+        options = webdriver.ChromeOptions()
+        options.add_argument("start-maximized")
+        options.add_argument("disable-infobars")
+        options.add_argument("--disable-extensions")
+        driver = webdriver.Chrome(path, options=options, **kwargs)
+        return driver
     
     def _close_popup(self):
         popup = self.driver.find_elements_by_css_selector(CSS_SELECTORS['popup'])
