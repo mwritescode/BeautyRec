@@ -1,5 +1,13 @@
 import numpy as np
 
+class SquareLoss():
+
+    def compute(self, y, y_pred):
+        return 0.5 * np.power((y - y_pred), 2)
+
+    def grad(self, y, y_pred):
+        return -(y - y_pred)
+
 def train_test_split(data, test_prc=0.25, random_seeed=42):
     data_size = len(data)
     test_size = int(data_size * test_prc)
