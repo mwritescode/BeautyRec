@@ -46,6 +46,8 @@ class DenseLayer(Layer):
     def initialize_params(self):
         self.W = np.random.random((self.in_shape[0], self.num_units))
         self.bias = np.zeros((1, self.num_units))
+        print('Bias: ', self.bias.shape)
+        print('Weights: ', self.W.shape)
     
     def get_output_shape(self):
         return (self.num_units, 1)
@@ -54,13 +56,17 @@ class DenseLayer(Layer):
         self.optimizer = (optimizer)
     
     def forward_pass(self, x):
-        self.inputs = x.reshape(self.in_shape)
+        #self.inputs = x.reshape(self.in_shape)
+        self.inputs = x
+        print('Input shape: ', self.inputs.shape)
+        if len(self.inputs.shape) == 1:
+            self.inputs = self.inputs.reshape((-1,1))
+        print('Input shape: ', self.inputs.shape)
         out = np.dot(x, self.W) + self.bias
         return out
     
     def backward_pass(self, accumulated_grad):
-        # Compute gradients
-        weights_grad = np.dot(self.inputs, accumulated_grad)
+        weights_grad = np.dot(self.inputs.T, accumulated_grad)
         bias_grad = np.sum(accumulated_grad, axis=0, keepdims=True)
 
         accumulated_grad = np.dot(accumulated_grad, self.W.T)
