@@ -20,6 +20,7 @@ class RMSProp():
             self.s_w = np.zeros(weights.shape)
         self.s_w = self.gamma * self.s_w + (1 - self.gamma) * (grad**2)
         lr = self.lr / np.sqrt(self.s_w + EPS)
+        self._save_one_learning_rate(lr, weights)
         W = weights - lr*grad
         return W
     
@@ -28,7 +29,7 @@ class RMSProp():
             self.s_bias = np.zeros(bias.shape)
         self.s_bias = self.gamma * self.s_bias + (1 - self.gamma) * (grad**2)
         lr = self.lr / np.sqrt(self.s_bias + EPS)
-        #self._save_one_learning_rate(lr, bias, type='bias')
+        self._save_one_learning_rate(lr, bias, type='bias')
         b = bias - lr*grad
         return b
     
