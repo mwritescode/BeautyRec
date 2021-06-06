@@ -1,13 +1,9 @@
 import numpy as np
-import pandas as pd
-from data_prep import remove_nicknames
-import matplotlib.pyplot as plt
 
 import copy
 
 from layers import DenseLayer, LeakyReLU
-from optimizers import Adam, RMSProp
-from utils import SquareLoss, plot_losses, plot_predictions
+from utils import MMSE
 
 class SequentialModel():
     def __init__(self, layers=None):
@@ -39,26 +35,45 @@ class SequentialModel():
             layer.compile(copy.deepcopy(optimizer))
         self.loss = loss
     
-    def fit(self, x, y, num_epochs=100, val_set=None, early_stopping=False, patience=5):
+    def _on_train_begins(self, val):
+        header_string = '{} \t | \t {} \t '.format('Iteration', 'Train Loss')
+        num_dashes = 40
+        if val is not None:
+            header_string += ' \t | \t {}'.format('Validation Loss')
+            num_dashes = 80
+        print(num_dashes*'-')
+        print(header_string)
+        print(num_dashes*'-')
+    
+    def _predict_val_loss(self, val_set, fails, early_stopping):
+        x_val, y_val = val_set
+        y_val_pred = self.predict(x_val)
+        val_loss = np.mean(self.loss.compute(y_val, y_val_pred))
+        self.errors['validation'].append(val_loss)
+        result_msg = ' \t\t | \t {:.4f} '.format(val_loss)
+        if early_stopping:
+            if val_loss > self.errors['validation'][-1]:
+                fails += 1
+            else:
+                fails = 0
+        return fails, result_msg
+
+    def fit(self, x, y, num_epochs=100, val_set=None, early_stopping=False, patience=3):
         fails = 0
-        for i in range(num_epochs):
-            if fails <= patience:
-                y_pred = self._forward_pass(x)
-                loss = np.mean(self.loss.compute(y, y_pred))
-                self.errors['training'].append(loss)
-                if val_set is not None:
-                    x_val, y_val = val_set
-                    y_val_pred = self.predict(x_val)
-                    val_loss = np.mean(self.loss.compute(y_val, y_val_pred))
-                    self.errors['validation'].append(val_loss)
-                    if early_stopping:
-                        if val_loss > self.errors['validation'][-1]:
-                            fails += 1
-                        else:
-                            fails = 0
-                loss_grad = self.loss.grad(y, y_pred)
-                print('Epoch {} \t Loss: {} '.format(i, loss))
-                self._backward_pass(loss_grad)
+        iteration = 0
+        self._on_train_begins(val_set)
+        while iteration < num_epochs and fails < patience:
+            y_pred = self._forward_pass(x)
+            loss = np.mean(self.loss.compute(y, y_pred))
+            result_msg = '{:.0f} \t\t | \t {:.4f} '.format(iteration +1, loss)
+            self.errors['training'].append(loss)
+            if val_set is not None:
+                fails, new_msg = self._predict_val_loss(val_set, fails, early_stopping)
+                result_msg += new_msg
+            loss_grad = self.loss.grad(y, y_pred)
+            print(result_msg)
+            self._backward_pass(loss_grad)
+            iteration += 1
         return self.errors
     
     def predict(self, x):
@@ -85,40 +100,41 @@ class SequentialModel():
             print(layer.to_string())
             print(empty_line)
             print(' ' + 80*'-')
-        
 
-layer1 = DenseLayer(num_units=1, input_shape=1)
-#layer2 = DenseLayer(num_units=256)
-#layer3 = LeakyReLU()
-#layer5 = DenseLayer(num_units=1)
+class Autoencoder():
+    def __init__(self, input_dim, num_latent_factors=20):
+        self.input_dim = input_dim
+        self.latent_factors =num_latent_factors
+        encoder = self._build_encoder()
+        decoder = self._build_decoder()
+        self.model = SequentialModel(encoder + decoder)
+    
+    def compile(self, optimizer):
+        loss = MMSE()
+        self.model.compile(optimizer, loss)
+    
+    def fit(self, x, y, num_epochs=100, val_set=None, early_stopping=False, patience=3):
+        errors = self.model.fit(x,y,num_epochs, val_set, early_stopping, patience)
+        return errors
 
-model = SequentialModel(layers=[layer1])
-#model.add(layer5)
-#model.print_summary()
-optimizer = RMSProp(learning_rate=0.01)
-loss = SquareLoss()
-model.compile(optimizer=optimizer, loss=loss)
-x1 = np.linspace(0, 100, num=650)
-x_val = np.linspace(25, 250, num=200)
-x_val = x_val.reshape((-1, 1))
-y_val = x_val +1 
-#noise = np.random.normal(3,1,500)
-y = x1 + 1
-#x_test = np.linspace(0, 500, num=32)
-#y_test = np.sin(x_test)
-#x = np.column_stack((x1, x2))
-x1 = x1.reshape((-1, 1))
-errors = model.fit(x1, y, num_epochs=250, val_set=(x_val, y_val), early_stopping=True)
-print('The final RMS is:', errors['training'][-1])
-plot_losses(errors['training'], errors['validation'])
-y_pred = model.predict(x1)
-plot_predictions(y, y_pred)
-y_val_pred = model.predict(x_val)
-plot_predictions(y_val, y_val_pred)
-
-learning_rates = model.layers[0].optimizer.learning_rates
-_, (ax1, ax2) = plt.subplots(nrows=1, ncols=2)
-ax1.plot(learning_rates['weights'], label='Example of weights lr', color='b', linewidth=3)
-ax2.plot(learning_rates['bias'], label='Example of bias lr', color='g', linewidth=3)
-plt.legend()
-plt.show()
+    def predict(self, x):
+        self.model.predict(x)
+    
+    def print_summary(self):
+        self.model.print_summary()
+    
+    def _build_encoder(self):
+        encoder = [
+            DenseLayer(num_units=128, input_shape=self.input_dim),
+            LeakyReLU(),
+            DenseLayer(num_units=self.latent_factors)
+        ]
+        return encoder
+    
+    def _build_decoder(self):
+        decoder = [
+            DenseLayer(num_units=128),
+            LeakyReLU(),
+            DenseLayer(num_units=self.input_dim)
+        ]
+        return decoder
