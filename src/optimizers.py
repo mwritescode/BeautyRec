@@ -1,5 +1,4 @@
 import numpy as np
-import math
 
 EPS = 10 ** (-8)
 
@@ -35,9 +34,6 @@ class RMSProp():
     
     def _save_one_learning_rate(self, lr, params, type='weights'):
         lr = lr.ravel()
-        if not self.learning_rates[type]:
-            params = params.ravel()
-            self.raference_index = np.random.randint(0, len(params))
         self.learning_rates[type].append(lr[self.reference_index])
 
 class Adam():
@@ -45,6 +41,7 @@ class Adam():
         self.lr = learning_rate
         self.b1 = b1
         self.b2 = b2
+        self.time_step = 1
         self.v_W = None
         self.v_bias = None
         self.s_W = None
@@ -63,11 +60,12 @@ class Adam():
         self.v_W = self.b1 * self.v_W + (1- self.b1) * grad
         self.s_W = self.b2 * self.s_W + (1 - self.b2) * (grad**2)
 
-        v_hat = self.v_W / (1 - self.b1)
-        s_hat = self.s_W / (1 - self.b2)
+        v_hat = self.v_W / (1 - self.b1 ** self.time_step)
+        s_hat = self.s_W / (1 - self.b2 ** self.time_step)
         
-        update = self.lr * v_hat / (np.sqrt(s_hat) + EPS)
-        return weights - update
+        lr = self.lr / (np.sqrt(s_hat) + EPS)
+        self._save_one_learning_rate(lr)
+        return weights - lr * v_hat
     
     def update_bias(self, bias, grad):
         if self.s_bias is None:
@@ -77,8 +75,14 @@ class Adam():
         self.v_bias = self.b1 * self.v_bias + (1- self.b1) * grad
         self.s_bias = self.b2 * self.s_bias + (1 - self.b2) * (grad**2)
 
-        v_hat = self.v_bias / (1 - self.b1)
-        s_hat = self.s_bias / (1 - self.b2)
+        v_hat = self.v_bias / (1 - self.b1 ** self.time_step)
+        s_hat = self.s_bias / (1 - self.b2 ** self.time_step)
         
-        update = self.lr * v_hat / (np.sqrt(s_hat) + EPS)
-        return bias - update
+        lr = self.lr / (np.sqrt(s_hat) + EPS)
+        self._save_one_learning_rate(lr, type='bias')
+        self.time_step +=1 
+        return bias - lr * v_hat
+    
+    def _save_one_learning_rate(self, lr, type='weights'):
+        lr = lr.ravel()
+        self.learning_rates[type].append(lr[self.reference_index])
