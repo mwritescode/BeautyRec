@@ -46,8 +46,6 @@ class DenseLayer(Layer):
     def initialize_params(self):
         self.W = np.random.random((self.in_shape[0], self.num_units))
         self.bias = np.zeros((1, self.num_units))
-        print('Bias: ', self.bias.shape)
-        print('Weights: ', self.W.shape)
     
     def get_output_shape(self):
         return (self.num_units, 1)
@@ -56,12 +54,9 @@ class DenseLayer(Layer):
         self.optimizer = (optimizer)
     
     def forward_pass(self, x):
-        #self.inputs = x.reshape(self.in_shape)
         self.inputs = x
-        print('Input shape: ', self.inputs.shape)
         if len(self.inputs.shape) == 1:
             self.inputs = self.inputs.reshape((-1,1))
-        print('Input shape: ', self.inputs.shape)
         out = np.dot(x, self.W) + self.bias
         return out
     
@@ -91,8 +86,6 @@ class LeakyReLU(Layer):
         self.inputs = None
     
     def __call__(self, x):
-        self.in_shape = x.shape
-        self.inputs = x
         out = np.where(x < 0, self.alpha * x, x)
         return out
     
@@ -104,6 +97,8 @@ class LeakyReLU(Layer):
         return self.in_shape
     
     def forward_pass(self, x):
+        self.in_shape = x.shape
+        self.inputs = x
         return self(x)
     
     def backward_pass(self, accumulated_grad):
