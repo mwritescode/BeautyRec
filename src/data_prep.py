@@ -41,7 +41,3 @@ def build_user_ratings_matrix(num_items, num_users, ratings):
     for _, row in ratings.iterrows():
         matrix[row.buyer_id - 1, row.product_id -1] = int(row.rating)
     return matrix
-
-#download_data('../data/27.pkl')
-#ratings = pd.read_csv('../data/ratings.csv', sep='\t')
-#ratings = remove_nicknames.ratings
