@@ -3,7 +3,7 @@ import pandas as pd
 
 import matplotlib.pyplot as plt
 
-from utils import train_test_split
+from utils import FactorScheduler, train_test_split
 from data_prep import remove_nicknames
 
 class MatrixFactorization():
@@ -35,10 +35,16 @@ class MatrixFactorization():
         print(header_string)
         print(num_dashes*'-')
 
-    def train(self, max_iter=20, regularize=0.1, learning_rate=0.05, val=None):
+    def train(self, max_iter=20, regularize=0.1, learning_rate=0.05, val=None, lr_scheduler=False):
         self._on_train_begins(val)
+        lr_accumulator = []
+        if lr_scheduler:
+            self.lr_scheduler = FactorScheduler(initial_lr=learning_rate)
         iteration = 0
         while iteration < max_iter and self.val_failures < 3:
+            if lr_scheduler:
+                learning_rate = self.lr_scheduler()
+                lr_accumulator.append(learning_rate)
             self._sgd_step(regularize, learning_rate)
             result_msg = '{:.0f} \t\t | \t {:.4f} '.format(iteration +1, self.global_rmse[-1])
             if val is not None:
@@ -51,6 +57,7 @@ class MatrixFactorization():
             iteration += 1
             print(result_msg)
         self._plot_rmse(iterations=range(iteration +1), val=val)
+        self._plot_lr(lr_accumulator)
     
     def _sgd_step(self, regularize, learning_rate):
         ratings = self.ratings.sample(frac=1)
@@ -75,6 +82,12 @@ class MatrixFactorization():
             ax.plot(iterations, self.validation_rmse, linewidth=3, color='green', label='Validation RMSE')
             ax.legend()
         plt.show()
+    
+    def _plot_lr(self, lr_accumulator):
+        if lr_accumulator:
+            plt.plot(lr_accumulator, linewidth=3, color='green')
+            plt.title('Learning rate per epoch.')
+            plt.show()
 
     def _predict_all(self, data):
         preds = np.zeros(len(data))
@@ -87,11 +100,3 @@ class MatrixFactorization():
         actual = data.rating.values
         pred = self._predict_all(data)
         return np.sqrt(np.sum((actual - pred) **2) /len(pred))
-
-ratings = pd.read_csv('../data/ratings.csv', sep='\t')
-ratings = remove_nicknames(ratings)
-num_users = len(ratings.buyer_id.unique())
-num_items = ratings.product_id.max() + 1
-train, val = train_test_split(ratings)
-model = MatrixFactorization(train, num_users, num_items, num_latent_factors=20)
-model.train(max_iter=20, learning_rate=0.01, regularize=0.5, val=val)
