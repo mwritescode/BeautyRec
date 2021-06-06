@@ -10,9 +10,35 @@ from matrix_factorization import MatrixFactorization
 from optimizers import Adam, RMSProp
 
 COLORS = {
-    'red': '\033[31m',
+    'green': '\033[32m',
     'endc': '\033[m'
 }
+
+def run_matrix_factorization():
+    ratings = pd.read_csv('../data/ratings2.csv', sep='\t')
+    num_users = len(ratings.buyer_id.unique())
+    num_items = ratings.product_id.max() + 1
+    train, val = train_test_split(ratings)
+    model = MatrixFactorization(train, num_users, num_items, num_latent_factors=20)
+    model.train(max_iter=20, learning_rate=0.01, regularize=0.5, val=val, lr_scheduler=True)
+
+def get_training_and_val_data():
+    user_matrix = pd.read_csv('../data/user_item_matrix.csv', sep='\t', header=None)
+    train_matrix, val_matrix = train_test_split(user_matrix)
+    train_matrix, val_matrix = train_matrix.values, val_matrix.values
+    return train_matrix, val_matrix
+
+def run_autoencoder(optimizer):
+    optimizer = Adam(learning_rate=0.03) if optimizer == 'adam' else RMSProp(learning_rate=0.05)
+    train_matrix, val_matrix = get_training_and_val_data()
+    model = Autoencoder(input_dim=train_matrix.shape[1])
+    model.print_summary()
+    model.compile(optimizer)
+    errors = model.fit(train_matrix, train_matrix, num_epochs=80, val_set=(val_matrix, val_matrix), early_stopping=True)
+    plot_losses(errors['training'], errors['validation'])
+    neuron_num = model.model.layers[0].optimizer.reference_index
+    learning_rates = model.model.layers[0].optimizer.learning_rates
+    plot_learning_rates(learning_rates['weights'], learning_rates['bias'], neuron_num)
 
 def main():
     parser = argparse.ArgumentParser(formatter_class=RawTextHelpFormatter)
@@ -27,29 +53,14 @@ def main():
                         '\nif it is specified along with --model mf it will be ignored.')
     args = parser.parse_args()
     if args.model == 'mf':
-        ratings = pd.read_csv('../data/ratings2.csv', sep='\t')
-        num_users = len(ratings.buyer_id.unique())
-        num_items = ratings.product_id.max() + 1
-        train, val = train_test_split(ratings)
-        model = MatrixFactorization(train, num_users, num_items, num_latent_factors=20)
-        model.train(max_iter=20, learning_rate=0.01, regularize=0.5, val=val, lr_scheduler=True)
+        run_matrix_factorization()
     else:
         if args.optimizer is None:
-                print(COLORS['red'], 
+                print(COLORS['green'], 
                      'No optimizer was chosen for autoencoder model, using the default RMSProp.',
                      COLORS['endc'])
                 args.optimizer = 'rmsprop'
-        optimizer = Adam(learning_rate=0.03) if args.optimizer == 'adam' else RMSProp(learning_rate=0.05)
-        user_matrix = pd.read_csv('../data/user_item_matrix.csv', sep='\t', header=None)
-        train_matrix, val_matrix = train_test_split(user_matrix)
-        model = Autoencoder(input_dim=train_matrix.shape[1])
-        model.print_summary()
-        model.compile(optimizer)
-        train_matrix, val_matrix = train_matrix.values, val_matrix.values
-        errors = model.fit(train_matrix, train_matrix, num_epochs=80, val_set=(val_matrix, val_matrix), early_stopping=True)
-        plot_losses(errors['training'], errors['validation'])
-        neuron_num = model.model.layers[0].optimizer.reference_index
-        learning_rates = model.model.layers[0].optimizer.learning_rates
-        plot_learning_rates(learning_rates['weights'], learning_rates['bias'], neuron_num)
-
-main()
+        run_autoencoder(args.optimizer)
+        
+if __name__ == "__main__":
+    main()
