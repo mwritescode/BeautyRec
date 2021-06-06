@@ -37,9 +37,9 @@ def remove_nicknames(ratings):
     return ratings
 
 def build_user_ratings_matrix(num_items, num_users, ratings):
-    matrix = np.zeros((num_users, num_items))
+    matrix = np.zeros((num_users, num_items), dtype=int)
     for _, row in ratings.iterrows():
-        matrix[row.buyer_id - 1, row.product_id -1] = row.rating
+        matrix[row.buyer_id - 1, row.product_id -1] = int(row.rating)
     return matrix
 
 #download_data('../data/27.pkl')
