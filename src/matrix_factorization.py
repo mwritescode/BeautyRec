@@ -28,6 +28,8 @@ class MatrixFactorization():
     
     Attributes
     ----------
+    ratings : pandas.DataFrame
+        Each row is a triplet of the form (product_id, ratings, user_id)
     user_bias: numpy.array
         Bias term for each user of the dataset
     item_bias: numpy.array
@@ -63,7 +65,7 @@ class MatrixFactorization():
         self.val_failures = 0
     
     def predict(self, user, item):
-        """ Computes the predicted rating given a user id and an item id
+        """ Computes the predicted rating given a user id and an item id.
 
         Parameters
         ----------
@@ -83,7 +85,7 @@ class MatrixFactorization():
         return pred
     
     def _on_train_begins(self, val):
-        """ Prints initial info when training starts
+        """ Prints initial info when training starts.
 
         Parameters
         ----------
@@ -194,7 +196,7 @@ class MatrixFactorization():
         plt.show()
     
     def _plot_lr(self, lr_accumulator):
-        """ Plots the learning rate per epoch
+        """ Plots the learning rate per epoch.
 
         Parameters
         ----------
@@ -209,7 +211,7 @@ class MatrixFactorization():
             plt.show()
 
     def _predict_all(self, data):
-        """ Predicts the ratings for a list of (user_id, item_id)
+        """ Predicts the ratings for a list of (user_id, item_id).
 
         Parameters
         ----------
@@ -229,7 +231,7 @@ class MatrixFactorization():
         return preds
     
     def _compute_rmse(self, data):
-        """ Computes the RMSE for the given data points
+        """ Computes the RMSE for the given data points.
 
         Parameters
         ----------

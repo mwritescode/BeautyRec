@@ -15,6 +15,7 @@ COLORS = {
 }
 
 def run_matrix_factorization():
+    """ Executes the Matrix Factorization model on the ratings dataset. """
     ratings = pd.read_csv('../data/ratings2.csv', sep='\t')
     num_users = len(ratings.buyer_id.unique())
     num_items = ratings.product_id.max() + 1
@@ -23,24 +24,43 @@ def run_matrix_factorization():
     model.train(max_iter=20, learning_rate=0.01, regularize=0.5, val=val, lr_scheduler=True)
 
 def get_training_and_val_data():
+    """ Loads the user-item matrix and splits it into train and val sets. 
+    
+    Returns
+    -------
+    train_matrix : numpy.array
+        Training user-item matrix
+    val_matrix : numpy.array
+        Validation user-item matrix
+
+    """
     user_matrix = pd.read_csv('../data/user_item_matrix.csv', sep='\t', header=None)
     train_matrix, val_matrix = train_test_split(user_matrix)
     train_matrix, val_matrix = train_matrix.values, val_matrix.values
     return train_matrix, val_matrix
 
 def run_autoencoder(optimizer):
+    """ Runs the autoencoder model using the specified optimizer.
+
+    Parameters
+    ----------
+    optimizer : RMSProp/Adam
+        Optimization algorithm to be used for parameter learning
+
+    """
     optimizer = Adam(learning_rate=0.03) if optimizer == 'adam' else RMSProp(learning_rate=0.05)
     train_matrix, val_matrix = get_training_and_val_data()
     model = Autoencoder(input_dim=train_matrix.shape[1])
     model.print_summary()
     model.compile(optimizer)
-    errors = model.fit(train_matrix, train_matrix, num_epochs=80, val_set=(val_matrix, val_matrix), early_stopping=True)
+    errors = model.fit(train_matrix, train_matrix, num_epochs=60, val_set=(val_matrix, val_matrix), early_stopping=True)
     plot_losses(errors['training'], errors['validation'])
     neuron_num = model.model.layers[0].optimizer.reference_index
     learning_rates = model.model.layers[0].optimizer.learning_rates
     plot_learning_rates(learning_rates['weights'], learning_rates['bias'], neuron_num)
 
 def main():
+    np.random.seed(42)
     parser = argparse.ArgumentParser(formatter_class=RawTextHelpFormatter)
     parser.add_argument('--model', 
                         choices=('mf', 'autoenc'), 
